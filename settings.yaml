@@ -1,0 +1,9 @@
+filters:
+  markets:
+    - btc
+    - eth
+    - xrp
+    - sol
+  timeframes:
+    - 5m
+    - 15m
