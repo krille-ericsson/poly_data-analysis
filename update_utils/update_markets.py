@@ -3,17 +3,7 @@ import csv
 import json
 import os
 from typing import Optional, Set
-from datetime import datetime, timezone
 from update_utils.settings_loader import slug_matches
-
-
-def _parse_iso_dt(v: str) -> Optional[datetime]:
-    if not v:
-        return None
-    try:
-        return datetime.fromisoformat(v.replace("Z", "+00:00")).astimezone(timezone.utc)
-    except Exception:
-        return None
 
 
 def update_markets(
@@ -29,7 +19,7 @@ def update_markets(
     Filters:
     - markets_filter: e.g. {'btc','eth','xrp','sol'}
     - timeframes_filter: e.g. {'5m','15m'}
-    - start_dt: include markets created/closed after this UTC datetime
+    - start_dt: accepted for compatibility, not applied to market selection
     """
     base_url = "https://gamma-api.polymarket.com/markets"
 
@@ -44,7 +34,7 @@ def update_markets(
     print(f"Writing filtered markets to {csv_filename}")
     print(f"markets filter={sorted(markets_filter) if markets_filter else 'none'}")
     print(f"timeframes filter={sorted(timeframes_filter) if timeframes_filter else 'none'}")
-    print(f"start_dt={start_dt.isoformat() if start_dt else 'none'}")
+    print("start_dt filter on markets: disabled (time window applies to events only)")
 
     current_offset = 0
     total_written = 0
@@ -86,28 +76,12 @@ def update_markets(
                     print("No more markets found. Completed!")
                     break
 
-                stop_due_to_time = False
-
                 for market in markets:
                     try:
                         slug = market.get('slug', '') or ''
                         if markets_filter and timeframes_filter and not slug_matches(slug, markets_filter, timeframes_filter):
                             continue
 
-                        created_dt = _parse_iso_dt(market.get('createdAt', ''))
-                        closed_dt = _parse_iso_dt(market.get('closedTime', ''))
-
-                        if start_dt:
-                            # Keep if either created or closed is inside lookback window.
-                            in_window = (
-                                (created_dt and created_dt >= start_dt)
-                                or (closed_dt and closed_dt >= start_dt)
-                            )
-                            if not in_window:
-                                # because sorted by createdAt desc, once clearly older we can stop.
-                                if created_dt and created_dt < start_dt:
-                                    stop_due_to_time = True
-                                continue
 
                         outcomes_str = market.get('outcomes', '[]')
                         outcomes = json.loads(outcomes_str) if isinstance(outcomes_str, str) else outcomes_str
@@ -149,10 +123,6 @@ def update_markets(
 
                 current_offset += len(markets)
                 print(f"Total filtered markets written: {total_written}")
-
-                if stop_due_to_time:
-                    print("Reached markets older than requested time window; stopping fetch.")
-                    break
 
                 if len(markets) < batch_size:
                     print("Received less than batch size. Reached end.")

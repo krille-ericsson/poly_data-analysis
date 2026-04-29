@@ -150,15 +150,6 @@ def process_live(
             pl.col("market_slug").map_elements(lambda s: slug_matches(str(s or ""), mf, tf), return_dtype=pl.Boolean)
         )
 
-    if min_timestamp and len(markets_df) > 0:
-        markets_df = markets_df.with_columns(
-            pl.col("createdAt").str.to_datetime(strict=False, utc=True).alias("createdAt_dt"),
-            pl.col("closedTime").str.to_datetime(strict=False, utc=True).alias("closedTime_dt"),
-        ).filter(
-            (pl.col("createdAt_dt").is_not_null() & (pl.col("createdAt_dt").dt.epoch("s") >= min_timestamp))
-            | (pl.col("closedTime_dt").is_not_null() & (pl.col("closedTime_dt").dt.epoch("s") >= min_timestamp))
-        ).drop(["createdAt_dt", "closedTime_dt"])
-
     print(f"✓ Using {len(markets_df):,} filtered markets")
 
     new_df = get_processed_df(df, markets_df)
