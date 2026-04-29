@@ -83,7 +83,23 @@ def process_live(
         "makerAssetId": pl.Utf8,
     }
 
+
+    if not os.path.exists("goldsky/orderFilled.csv"):
+        print("⚠ No goldsky/orderFilled.csv found. Nothing to process.")
+        return
+
     df = pl.scan_csv("goldsky/orderFilled.csv", schema_overrides=schema_overrides).collect(streaming=True)
+
+    if len(df) == 0:
+        print("⚠ orderFilled.csv is empty for selected filters/window. Wrote empty processed/trades.csv")
+        if not os.path.isdir('processed'):
+            os.makedirs('processed')
+        pl.DataFrame({
+            'timestamp': [], 'market_id': [], 'maker': [], 'taker': [],
+            'nonusdc_side': [], 'maker_direction': [], 'taker_direction': [],
+            'price': [], 'usd_amount': [], 'token_amount': [], 'transactionHash': []
+        }).write_csv('processed/trades.csv')
+        return
 
     if min_timestamp:
         df = df.filter(pl.col("timestamp") >= min_timestamp)

@@ -50,6 +50,9 @@ def scrape(
     if os.path.exists(output_file):
         os.remove(output_file)
 
+    # Always create output file with header so downstream steps never fail
+    pd.DataFrame(columns=COLUMNS_TO_SAVE).to_csv(output_file, index=False)
+
     last_timestamp = start_ts
     sticky_timestamp = None
     last_id = None
